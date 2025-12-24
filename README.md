@@ -1,7 +1,7 @@
 Microcomputer TinyBasRO
 ======================
 
-![screenshot](TimyBasRO.jpg)
+![screenshot](TinyBasRO.jpg)
 
 The TinyBasRO microcomputer is a very simple device that even an electrical engineering beginner should be able to assemble and put into operation. It resembles simple 8-bit computers from the 1980s. After assembly, it can be programmed very easily using the Tiny BASIC language, which should be manageable even for those who have never programmed before. The basis is a small 32-bit RISC-V processor cooperating with serial I2C memory, where the user-created program is stored.
 
