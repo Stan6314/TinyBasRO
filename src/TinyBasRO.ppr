@@ -1,0 +1,36 @@
+[Config]
+Compilator.FileName=compile.bat
+Compilator.PSPar=c:\CH32FUN\myprojects\TinyBasRO TinyBasRO
+Compilator.Log=c:\CH32FUN\myprojects\TinyBasRO\error.log
+Compilator.DefaultDir=c:\CH32FUN\myprojects\TinyBasRO
+Compilator.SaveAll=1
+Compilator.Capture=0
+Compilator.CompileOnBackground=0
+Compilator.ProgSaveAll=0
+Compilator.ProgRunSelection=0
+Compilator.LogType=0
+Compilator.LogEncoding=0
+DefaultCP=0
+LogtoEnd=1
+DontOpen=0
+AbsolutePath=0
+FileFormat=0
+ProjectFilesOnly=0
+HTServer=localhost
+[Project tree]
+TinyBasRO
+	+Folder
+		TinyBasRO.c
+		charstable.h
+[Open project files]
+0=TinyBasRO.c
+1=charstable.h
+[Selected Project Files]
+Main=
+Selected=charstable.h
+[TinyBasRO.c]
+TopLine=1
+Caret=28,21
+[charstable.h]
+TopLine=10
+Caret=42,46
