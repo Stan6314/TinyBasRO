@@ -1,8 +1,9 @@
 /********************************** (C) COPYRIGHT *******************************
  * File Purpose       : TinyBasicRO main file
  * Author             : Stan6314
- * Version            : V1.0
- * Date               : 2025/12/25
+ * Versions           : V1.0 - initial
+ *                      V1.1 - fix I2CR and I2CW command
+ * Date               : 2026/07/26 
  * Description        : TinyBasic for CH32V003
  *      + character constants are in charstable.h
  * The program contains 3 parts:
@@ -13,7 +14,6 @@
 *******************************************************************************/
 #include "ch32fun.h"
 #include "charstable.h"
-
 // Uncomment for OLED display upside down
 //#define OLEDUPSIDEDOWN
 
@@ -1303,30 +1303,28 @@ void Statement()
     case 0xB9:     // I2CW
       RemoveNextWhtSP();
       if((numOnLine = isExpression()) != NULL) {
-        if(compFlags & 0x40)
+        if(compFlags & 0x40)    // Is expander?
           { 
-            // Communication is similar to 24Cxxx - see above
         	// Wait for I2C not busy
         	uint32_t timeout = TIMEOUT_MAX;
         	while((I2C1->STAR2 & I2C_STAR2_BUSY) && (timeout--));
         	if(timeout==-1) {I2C1->CTLR1 |= I2C_CTLR1_STOP; return;}
         	// Set START condition
         	I2C1->CTLR1 |= I2C_CTLR1_START;
-        	// Wait for master mode select
-            if(I2CTimeout(I2C_EVENT_MASTER_MODE_SELECT)) return;
+        	// Wait for START
+            while(!(I2C1->STAR1 & I2C_STAR1_SB)){};
         	// send 7-bit address + write flag
         	I2C1->DATAR = 0x40;
-        	// Wait for transmit condition
-            if(I2CTimeout(I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED)) return;
-        	// Send LSB
-        	I2C1->DATAR = (*numOnLine & 0xFF);
-        	// Wait for transmit condition
-            if(I2CTimeout(I2C_EVENT_MASTER_BYTE_TRANSMITTED)) return;
-        	// Send MSB
-        	I2C1->DATAR = (*numOnLine >> 8);
-        	// Wait for transmit condition
-            if(I2CTimeout(I2C_EVENT_MASTER_BYTE_TRANSMITTED)) return;
-        	// set STOP condition
+        	// Wait for address transmition completed
+            while(!(I2C1->STAR1 & I2C_STAR1_ADDR)){}; (void)I2C1->STAR2;
+            I2C1->DATAR = (*numOnLine & 0xFF);
+            // Write 1. byte
+            while(!(I2C1->STAR1 & I2C_STAR1_TXE)){};
+            I2C1->DATAR = (*numOnLine >> 8);
+            // Write 2. byte
+            while(!(I2C1->STAR1 & I2C_STAR1_TXE)){};
+            while(!(I2C1->STAR1 & I2C_STAR1_BTF)){};
+         	// Set STOP conditions
         	I2C1->CTLR1 |= I2C_CTLR1_STOP;
           } 
       } else WriteErrMsg("Missing value!");
@@ -1335,36 +1333,31 @@ void Statement()
     case 0xBA:     // I2CR
       RemoveNextWhtSP();
       if((numOnLine = isVariableNext()) != NULL) {
-        if(compFlags & 0x40) 
+        if(compFlags & 0x40)     // Is expander?
           { 
-            // Communication is similar to 24Cxxx - see above
         	// Wait for I2C not busy
         	uint32_t timeout = TIMEOUT_MAX;
         	while((I2C1->STAR2 & I2C_STAR2_BUSY) && (timeout--));
         	if(timeout==-1) {I2C1->CTLR1 |= I2C_CTLR1_STOP; return;}
-        	// Set START condition
+           	// Set START condition
         	I2C1->CTLR1 |= I2C_CTLR1_START;
-        	// Wait for master mode select
-            if(I2CTimeout(I2C_EVENT_MASTER_MODE_SELECT)) return;
+            if( I2CTimeout( ((uint32_t)0x00030001) ) ) break;
         	// send 7-bit address + write flag
         	I2C1->DATAR = 0x41;
-        	// Wait for transmit condition
-            if(I2CTimeout(I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED)) return;
-            I2C1->CTLR1 |= I2C_CTLR1_ACK;
-        	// Wait for transmit condition
-            if(I2CTimeout(I2C_EVENT_MASTER_BYTE_RECEIVED)) return;
-        	// Read LSB
-        	int recI2Cval = I2C1->DATAR;
-            if(I2CTimeout(I2C_EVENT_MASTER_BYTE_RECEIVED)) return;
-        	// Read MSB
-        	recI2Cval |= I2C1->DATAR << 8;
-            I2C1->CTLR1 &= ~I2C_CTLR1_ACK;
-        	// set STOP condition
+            if( I2CTimeout( ((uint32_t)0x00030002) ) ) break;
+            // Read first byte with ACK
+        	I2C1->CTLR1 |= I2C_CTLR1_ACK;
+            if( I2CTimeout( ((uint32_t)0x00030040) ) ) break;
+            int recI2Cval = I2C1->DATAR;
+            // Read second byte with NACK and STOP
+         	I2C1->CTLR1 &= ~I2C_CTLR1_ACK;
         	I2C1->CTLR1 |= I2C_CTLR1_STOP;
+            if( I2CTimeout( ((uint32_t)0x00030040) ) ) break;
+            recI2Cval |= (I2C1->DATAR) << 8;
             *numOnLine = recI2Cval;
           }
       } else WriteErrMsg("Missing variable!");
-      break; // end I2CR
+      break; // end I2CR     
     // ...........................................................
     // ...........................................................
 
@@ -1420,7 +1413,7 @@ int main()
     adc_init(); // Start A/D converter
     line_buffer[32] = (unsigned char)0xFF;  // Stop symbol at end of buffer
 
-    WriteTextln("TinyBasic 1.0");  // Introductory message
+    WriteTextln("TinyBasic 1.1");  // Introductory message
     if(!ISDISKf) WriteTextln("No DISK f");
     if(!ISEXPANDER) WriteTextln("No PCF8575");
   
